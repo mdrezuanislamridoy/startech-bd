@@ -1,16 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { featuredProducts } from "@/data/products";
+import { useApp } from "@/context/AppContext";
 
 export default function CheckoutPage() {
   const router = useRouter();
-
-  // Pre-populate with 2 default products for easy testing
-  const [cartItems, setCartItems] = useState([
-    { ...featuredProducts[11], quantity: 1 }, // Lenovo Laptop
-    { ...featuredProducts[16], quantity: 1 }, // Samsung Mobile
-  ]);
+  const { cart, updateCartQty, removeFromCart, clearCart } = useApp();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -21,27 +16,13 @@ export default function CheckoutPage() {
     paymentMethod: "sslcommerz", // default to SSLCommerz to showcase sandbox
   });
 
-  const handleQtyChange = (id, delta) => {
-    setCartItems((prev) =>
-      prev
-        .map((item) => {
-          if (item.id === id) {
-            const newQty = item.quantity + delta;
-            return { ...item, quantity: newQty };
-          }
-          return item;
-        })
-        .filter((item) => item.quantity > 0)
-    );
-  };
-
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const deliveryFee = subtotal > 50000 ? 0 : 120; // free delivery above 50,000 BDT
-  const total = subtotal + deliveryFee;
+  const total = subtotal + (cart.length > 0 ? deliveryFee : 0);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (cartItems.length === 0) {
+    if (cart.length === 0) {
       return alert("Your cart is empty!");
     }
 
@@ -49,12 +30,15 @@ export default function CheckoutPage() {
       // Redirect to SSLCommerz sandbox simulation
       router.push(`/payment/sslcommerz?amount=${total}&name=${encodeURIComponent(formData.name)}&phone=${formData.phone}`);
     } else {
-      // Redirect to cash on delivery success
+      // Clear cart and redirect to cash on delivery success
+      clearCart();
       router.push(`/checkout/success?method=cod&amount=${total}`);
     }
   };
 
-  const handleChange = (e) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -70,7 +54,7 @@ export default function CheckoutPage() {
         <p className="text-xs text-text-muted mt-1">Complete your shipping information and choose payment method.</p>
       </div>
 
-      {cartItems.length > 0 ? (
+      {cart.length > 0 ? (
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 mb-12">
           {/* Shipping Form */}
           <div className="bg-white rounded-lg p-5 md:p-6 shadow-xs border border-gray-50 flex flex-col gap-5">
@@ -199,7 +183,7 @@ export default function CheckoutPage() {
               
               {/* Product items list */}
               <div className="flex flex-col gap-4 divide-y divide-gray-100 max-h-[250px] overflow-y-auto pr-1">
-                {cartItems.map((item) => (
+                {cart.map((item) => (
                   <div key={item.id} className="flex gap-3 pt-3 first:pt-0">
                     <img 
                       src={item.image} 
@@ -210,9 +194,9 @@ export default function CheckoutPage() {
                       <h4 className="text-xs font-medium text-text-main leading-snug line-clamp-2">{item.name}</h4>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-2 border border-gray-200 rounded-sm px-1.5 bg-gray-50">
-                          <button type="button" onClick={() => handleQtyChange(item.id, -1)} className="text-xs hover:text-primary font-bold">-</button>
+                          <button type="button" onClick={() => updateCartQty(item.id, -1)} className="text-xs hover:text-primary font-bold">-</button>
                           <span className="text-xs font-semibold text-text-main px-1">{item.quantity}</span>
-                          <button type="button" onClick={() => handleQtyChange(item.id, 1)} className="text-xs hover:text-primary font-bold">+</button>
+                          <button type="button" onClick={() => updateCartQty(item.id, 1)} className="text-xs hover:text-primary font-bold">+</button>
                         </div>
                         <span className="text-xs font-bold text-primary">{formatPrice(item.price * item.quantity)}</span>
                       </div>
